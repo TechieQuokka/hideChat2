@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -52,8 +53,8 @@ namespace hideChat2
             var geoipPath = Path.Combine(torDir, "geoip");
             var geoip6Path = Path.Combine(torDir, "geoip6");
 
-            // Extract tor.exe
-            if (!File.Exists(torExePath))
+            // Extract tor.exe (re-extract if file missing or tampered)
+            if (!File.Exists(torExePath) || !FileMatchesEmbeddedResource(torExePath, "hideChat2.Resources.tor.exe"))
             {
                 ExtractResource("hideChat2.Resources.tor.exe", torExePath);
             }
@@ -70,6 +71,39 @@ namespace hideChat2
             }
 
             return torExePath;
+        }
+
+        /// <summary>
+        /// Verify that an on-disk file matches its embedded resource by SHA-256 hash.
+        /// Returns false on any error so the caller re-extracts defensively.
+        /// </summary>
+        private bool FileMatchesEmbeddedResource(string filePath, string resourceName)
+        {
+            try
+            {
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                byte[] resourceHash;
+                using (var resourceStream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (resourceStream == null) return false;
+                    using (var sha = SHA256.Create())
+                        resourceHash = sha.ComputeHash(resourceStream);
+                }
+
+                byte[] fileHash;
+                using (var fileStream = File.OpenRead(filePath))
+                using (var sha = SHA256.Create())
+                    fileHash = sha.ComputeHash(fileStream);
+
+                if (resourceHash.Length != fileHash.Length) return false;
+                for (int i = 0; i < resourceHash.Length; i++)
+                    if (resourceHash[i] != fileHash[i]) return false;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -144,7 +178,8 @@ namespace hideChat2
                     // Extract percentage
                     var percentIdx = bootstrapLine.IndexOf("Bootstrapped ") + "Bootstrapped ".Length;
                     var percentEnd = bootstrapLine.IndexOf("%", percentIdx);
-                    if (int.TryParse(bootstrapLine.Substring(percentIdx, percentEnd - percentIdx), out int percent))
+                    if (percentEnd > percentIdx &&
+                        int.TryParse(bootstrapLine.Substring(percentIdx, percentEnd - percentIdx), out int percent))
                     {
                         BootstrapProgress = percent;
                         BootstrapStatus = bootstrapLine;

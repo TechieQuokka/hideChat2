@@ -21,7 +21,8 @@ namespace hideChat2
             KeyExchange = 0x01,      // Public key exchange
             EncryptedMessage = 0x02, // Encrypted chat message
             TypingIndicator = 0x03,  // Typing indicator (future)
-            ReadReceipt = 0x04       // Read receipt (future)
+            ReadReceipt = 0x04,      // Read receipt (future)
+            ConnectionAck = 0x05     // Mutual connection confirmation
         }
 
         public NetworkProtocol(NetworkStream stream)
@@ -67,6 +68,14 @@ namespace hideChat2
         }
 
         /// <summary>
+        /// Send connection acknowledgment (mutual handshake confirmation)
+        /// </summary>
+        public async Task SendConnectionAckAsync(CancellationToken ct = default)
+        {
+            await SendFrameAsync(MessageType.ConnectionAck, new byte[0], ct);
+        }
+
+        /// <summary>
         /// Receive and process next frame
         /// Returns: (MessageType, DecryptedMessage or null)
         /// </summary>
@@ -100,7 +109,7 @@ namespace hideChat2
 
                 case MessageType.TypingIndicator:
                 case MessageType.ReadReceipt:
-                    // Future implementation
+                case MessageType.ConnectionAck:
                     return (type, null);
 
                 default:

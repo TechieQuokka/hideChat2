@@ -165,18 +165,14 @@ namespace hideChat2
         }
 
         /// <summary>
-        /// Constant-time byte array comparison (prevent timing attacks)
+        /// Constant-time byte array comparison (prevent timing attacks).
+        /// Lengths are XOR-ed into diff first so mismatched lengths don't cause early return.
         /// </summary>
-        private bool ConstantTimeEquals(byte[] a, byte[] b)
+        private static bool ConstantTimeEquals(byte[] a, byte[] b)
         {
-            if (a.Length != b.Length)
-                return false;
-
-            int diff = 0;
-            for (int i = 0; i < a.Length; i++)
-            {
+            int diff = a.Length ^ b.Length;
+            for (int i = 0; i < a.Length && i < b.Length; i++)
                 diff |= a[i] ^ b[i];
-            }
             return diff == 0;
         }
 

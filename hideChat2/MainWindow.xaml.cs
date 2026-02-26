@@ -19,7 +19,7 @@ namespace hideChat2
         private PeerListener _listener;
         private PeerConnector _connector;
         private CancellationTokenSource _cts;
-        private bool _isConnected = false;
+        private volatile bool _isConnected = false;
         private int _currentBasePort;
         private System.Windows.Threading.DispatcherTimer _typingTimer;
         private System.Windows.Threading.DispatcherTimer _typingIndicatorHideTimer;
@@ -57,9 +57,9 @@ namespace hideChat2
             try
             {
                 if (!int.TryParse(BasePortTextBox.Text, out int basePort) ||
-                    basePort < Config.MIN_PORT || basePort > Config.MAX_PORT)
+                    basePort < Config.MIN_PORT || basePort > Config.MAX_PORT - 2)
                 {
-                    MessageBox.Show($"올바른 포트를 입력하세요 ({Config.MIN_PORT}-{Config.MAX_PORT})",
+                    MessageBox.Show($"올바른 포트를 입력하세요 ({Config.MIN_PORT}-{Config.MAX_PORT - 2})",
                         "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -101,9 +101,9 @@ namespace hideChat2
             try
             {
                 if (!int.TryParse(BasePortTextBox.Text, out int basePort) ||
-                    basePort < Config.MIN_PORT || basePort > Config.MAX_PORT)
+                    basePort < Config.MIN_PORT || basePort > Config.MAX_PORT - 2)
                 {
-                    MessageBox.Show($"올바른 포트를 입력하세요 ({Config.MIN_PORT}-{Config.MAX_PORT})",
+                    MessageBox.Show($"올바른 포트를 입력하세요 ({Config.MIN_PORT}-{Config.MAX_PORT - 2})",
                         "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -154,9 +154,9 @@ namespace hideChat2
                     return;
 
                 if (!int.TryParse(input, out int newPort) ||
-                    newPort < Config.MIN_PORT || newPort > Config.MAX_PORT)
+                    newPort < Config.MIN_PORT || newPort > Config.MAX_PORT - 2)
                 {
-                    MessageBox.Show($"올바른 포트를 입력하세요 ({Config.MIN_PORT}-{Config.MAX_PORT})",
+                    MessageBox.Show($"올바른 포트를 입력하세요 ({Config.MIN_PORT}-{Config.MAX_PORT - 2})",
                         "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -437,20 +437,17 @@ namespace hideChat2
                 string message = MessageInputTextBox.Text.Trim();
                 MessageInputTextBox.Clear();
 
-                // Display sent message
-                AppendChatMessage(message, isMyMessage: true);
-
-                // Send message
+                // Send first; display only on success
                 try
                 {
                     if (_connector?.IsConnected == true)
-                    {
                         await _connector.SendAsync(message, _cts.Token);
-                    }
                     else if (_listener?.IsConnected == true)
-                    {
                         await _listener.SendAsync(message, _cts.Token);
-                    }
+                    else
+                        throw new InvalidOperationException("연결이 없습니다");
+
+                    AppendChatMessage(message, isMyMessage: true);
                 }
                 catch (Exception ex)
                 {

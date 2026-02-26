@@ -80,16 +80,19 @@ Log notice stdout
 
         public static bool IsPortAvailable(int port)
         {
+            var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, port);
             try
             {
-                var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, port);
                 listener.Start();
-                listener.Stop();
                 return true;
             }
             catch
             {
                 return false;
+            }
+            finally
+            {
+                try { listener.Stop(); } catch { }
             }
         }
     }

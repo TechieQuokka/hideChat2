@@ -38,8 +38,8 @@ namespace hideChat2
 
             _protocol = new NetworkProtocol(_stream);
 
-            // Key exchange
-            await PerformKeyExchangeAsync(ct);
+            // Handshake (key exchange + mutual ack)
+            await PerformHandshakeAsync(ct);
 
             Connected?.Invoke(this, EventArgs.Empty);
 
@@ -48,20 +48,35 @@ namespace hideChat2
         }
 
         /// <summary>
-        /// Perform ECDH key exchange
-        /// Protocol: Both sides send public key, then derive shared secret
+        /// Staggered 4-step handshake (connector responds).
+        /// T2: Receive listener key  →  T3: Send own key
+        /// T6: Receive listener Ack  →  T7: Send Ack → connector confirmed
+        /// Listener receives T7 and fires PeerConnected, guaranteeing mutual readiness.
+        /// Wrapped in a 30-second timeout.
         /// </summary>
-        private async Task PerformKeyExchangeAsync(CancellationToken ct)
+        private async Task PerformHandshakeAsync(CancellationToken ct)
         {
-            // Send our public key
-            await _protocol.SendKeyExchangeAsync(ct);
+            using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                cts.CancelAfter(TimeSpan.FromSeconds(30));
+                var token = cts.Token;
 
-            // Receive peer's public key
-            var (type, _) = await _protocol.ReceiveFrameAsync(ct);
-            if (type != NetworkProtocol.MessageType.KeyExchange)
-                throw new InvalidOperationException("Expected key exchange message");
+                // T2: Receive listener's public key first → DeriveSharedSecret called inside
+                var (type1, _) = await _protocol.ReceiveFrameAsync(token);
+                if (type1 != NetworkProtocol.MessageType.KeyExchange)
+                    throw new InvalidOperationException("Expected KeyExchange frame");
 
-            // Encryption now initialized
+                // T3: Send our public key
+                await _protocol.SendKeyExchangeAsync(token);
+
+                // T6: Wait for listener's Ack (listener has our key and is ready)
+                var (type2, _) = await _protocol.ReceiveFrameAsync(token);
+                if (type2 != NetworkProtocol.MessageType.ConnectionAck)
+                    throw new InvalidOperationException("Expected ConnectionAck frame");
+
+                // T7: Confirm back → after this, listener fires PeerConnected
+                await _protocol.SendConnectionAckAsync(token);
+            }
         }
 
         private async Task ReceiveLoopAsync(NetworkStream stream, NetworkProtocol protocol, CancellationToken ct)
