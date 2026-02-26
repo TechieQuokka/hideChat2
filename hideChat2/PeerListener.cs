@@ -93,7 +93,7 @@ namespace hideChat2
         {
             using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
-                cts.CancelAfter(TimeSpan.FromSeconds(30));
+                cts.CancelAfter(TimeSpan.FromSeconds(60));
                 var token = cts.Token;
 
                 // T1: Send our public key first (listener always initiates)
