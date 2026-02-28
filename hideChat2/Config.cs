@@ -30,10 +30,6 @@ namespace hideChat2
         public const int WINDOW_HEIGHT = 600;
         public const string WINDOW_TITLE = "Alpha";
 
-        // Tor executable extraction
-        public static readonly string TempTorDirectory =
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hideChat2", "tor");
-
         // Tor configuration template
         // Parameters: {0}=SocksPort, {1}=ControlPort, {2}=DataDirectory, {3}=HiddenServiceDir,
         //             {4}=HiddenServicePort, {5}=ServicePort, {6}=GeoIPFile, {7}=GeoIPv6File

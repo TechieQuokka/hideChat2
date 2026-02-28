@@ -1,7 +1,7 @@
 <Window x:Class="hideChat2.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Alpha"
+        Title="Private Chat"
         Height="600"
         Width="500"
         ResizeMode="CanMinimize"

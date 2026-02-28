@@ -1,9 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,92 +33,17 @@ namespace hideChat2
             _socksPort = basePort;
             _controlPort = basePort + 1;
             _servicePort = basePort + 2;
-            // Use current directory like torChat (proven to work)
             _dataDir = Path.GetFullPath($"tordata_{basePort}");
-            _torExePath = torExePath ?? ExtractTorExecutable();
+            _torExePath = torExePath ?? GetTorPath();
         }
 
-        /// <summary>
-        /// Extract tor.exe and geoip files from embedded resources
-        /// </summary>
-        private string ExtractTorExecutable()
+        private static string GetTorPath()
         {
-            var torDir = Config.TempTorDirectory;
-            Directory.CreateDirectory(torDir);
-
-            var torExePath = Path.Combine(torDir, "tor.exe");
-            var geoipPath = Path.Combine(torDir, "geoip");
-            var geoip6Path = Path.Combine(torDir, "geoip6");
-
-            // Extract tor.exe (re-extract if file missing or tampered)
-            if (!File.Exists(torExePath) || !FileMatchesEmbeddedResource(torExePath, "hideChat2.Resources.tor.exe"))
-            {
-                ExtractResource("hideChat2.Resources.tor.exe", torExePath);
-            }
-
-            // Extract geoip files
-            if (!File.Exists(geoipPath))
-            {
-                ExtractResource("hideChat2.Resources.geoip", geoipPath);
-            }
-
-            if (!File.Exists(geoip6Path))
-            {
-                ExtractResource("hideChat2.Resources.geoip6", geoip6Path);
-            }
-
-            return torExePath;
-        }
-
-        /// <summary>
-        /// Verify that an on-disk file matches its embedded resource by SHA-256 hash.
-        /// Returns false on any error so the caller re-extracts defensively.
-        /// </summary>
-        private bool FileMatchesEmbeddedResource(string filePath, string resourceName)
-        {
-            try
-            {
-                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                byte[] resourceHash;
-                using (var resourceStream = assembly.GetManifestResourceStream(resourceName))
-                {
-                    if (resourceStream == null) return false;
-                    using (var sha = SHA256.Create())
-                        resourceHash = sha.ComputeHash(resourceStream);
-                }
-
-                byte[] fileHash;
-                using (var fileStream = File.OpenRead(filePath))
-                using (var sha = SHA256.Create())
-                    fileHash = sha.ComputeHash(fileStream);
-
-                if (resourceHash.Length != fileHash.Length) return false;
-                for (int i = 0; i < resourceHash.Length; i++)
-                    if (resourceHash[i] != fileHash[i]) return false;
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Extract embedded resource to file
-        /// </summary>
-        private void ExtractResource(string resourceName, string outputPath)
-        {
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            using (var stream = assembly.GetManifestResourceStream(resourceName))
-            {
-                if (stream == null)
-                    throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
-
-                using (var fileStream = File.Create(outputPath))
-                {
-                    stream.CopyTo(fileStream);
-                }
-            }
+            var appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            var path = Path.Combine(appDir, "Resources", "tor.exe");
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"tor.exe not found: {path}");
+            return path;
         }
 
         public async Task StartAsync(CancellationToken ct = default)
@@ -132,9 +54,10 @@ namespace hideChat2
 
             var torrcPath = Path.Combine(_dataDir, "torrc");
 
-            // GeoIP files from extracted resources
-            var geoipFile = Path.Combine(Config.TempTorDirectory, "geoip").Replace("\\", "/");
-            var geoip6File = Path.Combine(Config.TempTorDirectory, "geoip6").Replace("\\", "/");
+            // GeoIP files from Resources folder alongside the exe
+            var appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            var geoipFile = Path.Combine(appDir, "Resources", "geoip").Replace("\\", "/");
+            var geoip6File = Path.Combine(appDir, "Resources", "geoip6").Replace("\\", "/");
 
             // Generate torrc from template
             var torrc = string.Format(Config.TORRC_TEMPLATE,
